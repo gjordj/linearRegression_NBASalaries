@@ -1,0 +1,5 @@
+"0",""
+"0","# Kernel Density Plot"
+"0",""
+"0","hist.MP.dens<- density(mData$MP) # returns the density data"
+"0","plot(hist.MP.dens) # plots the results"

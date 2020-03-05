@@ -1,0 +1,3 @@
+"0","correlated_data<-select(newData, variable)"
+"0","correlated_data.cor = cor(correlated_data)"
+"0","corrplot(correlated_data.cor)"

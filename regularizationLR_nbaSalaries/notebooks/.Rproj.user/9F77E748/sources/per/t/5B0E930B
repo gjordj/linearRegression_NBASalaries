@@ -1,0 +1,27 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1571930119263.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "749847009",
+    "id" : "5B0E930B",
+    "lastKnownWriteTime" : 1573317288,
+    "last_content_update" : 1573317288609,
+    "path" : "~/Google Drive/DATA SCIENCE-TRADING/1_CUNEF/Prediction/Prediction_Code/NBA/CP002/notebooks/CP002_NBA_Regularization_Jordi_Tarroch.Rmd",
+    "project_path" : "CP002_NBA_Regularization_Jordi_Tarroch.Rmd",
+    "properties" : {
+        "cursorPosition" : "223,137",
+        "docOutlineVisible" : "1",
+        "scrollLine" : "204",
+        "tempName" : "Untitled1"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

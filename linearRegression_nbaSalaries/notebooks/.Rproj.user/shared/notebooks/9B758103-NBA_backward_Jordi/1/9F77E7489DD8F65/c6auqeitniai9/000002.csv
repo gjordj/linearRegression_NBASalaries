@@ -1,0 +1,39 @@
+"0","vResid=resid(regres04)"
+"0","library(fBasics)"
+"0","jbTest(vResid)"
+"2","interpp.old() is deprecated, future versions will only provide interpp()"
+"2","interpp.old() is deprecated, future versions will only provide interpp()"
+"1","
+Title:
+ "
+"1",""
+"1","Jarque - Bera Normality Test"
+"1",""
+"1","
+"
+"1","
+Test Results:
+"
+"1","  PARAMETER:
+"
+"1","    Sample Size: 485
+"
+"1","  STATISTIC:
+"
+"1","    LM: 79.976
+"
+"1","    ALM: 82.666
+"
+"1","  P VALUE:
+"
+"1","    Asymptotic: < 2.2e-16 
+"
+"1","
+Description:
+ "
+"1",""
+"1","Thu Jan 16 19:59:37 2020 by user: "
+"1","
+
+"
+"0","#We see in this Jarque - Bera Normality Test that the distribution is not Normal because the p-value is <<<<5%"

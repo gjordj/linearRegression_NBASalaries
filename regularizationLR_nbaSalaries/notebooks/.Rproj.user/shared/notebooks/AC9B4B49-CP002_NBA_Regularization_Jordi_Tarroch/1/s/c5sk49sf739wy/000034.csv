@@ -1,0 +1,8 @@
+"0",""
+"0",""
+"0",""
+"0","#AGE VS SALARY"
+"0","salary_age <- ggplot(data = mData)+ "
+"0","  geom_point(aes(x = Age , y = Salary, color = Age)) + ggtitle(""Salary VS Age"") + theme_bw() + theme(plot.title = element_text(hjust=0.5))+"
+"0","  geom_smooth(mapping = aes (x = Age, y = Salary))"
+"0","salary_age"

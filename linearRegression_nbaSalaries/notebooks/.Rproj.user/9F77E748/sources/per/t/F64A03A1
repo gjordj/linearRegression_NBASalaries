@@ -1,0 +1,27 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1571230060827.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "1393110789",
+    "id" : "F64A03A1",
+    "lastKnownWriteTime" : 1579201156,
+    "last_content_update" : 1580146364786,
+    "path" : "~/Google Drive/DATA SCIENCE-TRADING/1_CUNEF/Prediction/2_Prediction_Code/1_Linear Regression/NBA/CP001/notebooks/NBA_backward_Jordi.Rmd",
+    "project_path" : "NBA_backward_Jordi.Rmd",
+    "properties" : {
+        "cursorPosition" : "1145,18",
+        "docOutlineSize" : "178.8279456068712",
+        "docOutlineVisible" : "1",
+        "scrollLine" : "894"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 1,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

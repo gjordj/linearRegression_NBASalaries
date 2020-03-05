@@ -1,0 +1,8 @@
+"0","# Plots empirical quantiles of a variable, or of studentized residuals from a linear model, against theoretical quantiles of a comparison distribution."
+"0","qqPlot(regres04, labels=row.names(filtered1), id.method=""identify"","
+"0","       simulate=TRUE, main=""Q-Q Plot"")"
+"1","[1]"
+"1"," 114"
+"1"," 328"
+"1","
+"

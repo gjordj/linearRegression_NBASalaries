@@ -1,0 +1,8 @@
+"0","################"
+"0","# RELATIONSHIPS#"
+"0","################"
+"0","#NBA_DraftNumber VS SALARY"
+"0","salary_NBA_DraftNumber <- ggplot(data = mData) + "
+"0","  geom_point(aes(x = NBA_DraftNumber , y = Salary, color = NBA_DraftNumber)) + ggtitle(""Salary VS NBA_DraftNumber"") + theme_bw() + theme(plot.title = element_text(hjust=0.5)) +"
+"0","  geom_smooth(mapping = aes (x = NBA_DraftNumber, y = Salary))"
+"0","salary_NBA_DraftNumber"

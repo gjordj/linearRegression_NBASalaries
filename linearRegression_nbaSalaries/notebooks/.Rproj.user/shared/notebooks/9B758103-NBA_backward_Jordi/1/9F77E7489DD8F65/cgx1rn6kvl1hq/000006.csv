@@ -1,0 +1,7 @@
+"0","# Cooks Distance D"
+"0","# identify D values > 4/(n-k-1) "
+"0","cutoff <- 4/(nrow(check)-length(regres03$coefficients)-2)"
+"0","plot(regres01, which=4, cook.levels=cutoff)+"
+"0","abline(h=cutoff, lty=2, col=""red"")"
+"1","integer(0)
+"

@@ -1,0 +1,3 @@
+"0","# Influence Plot"
+"0","influencePlot(regres03, main=""Influence Plot 3"", "
+"0","              sub=""Circle size is proportional to Cook's Distance"" )"

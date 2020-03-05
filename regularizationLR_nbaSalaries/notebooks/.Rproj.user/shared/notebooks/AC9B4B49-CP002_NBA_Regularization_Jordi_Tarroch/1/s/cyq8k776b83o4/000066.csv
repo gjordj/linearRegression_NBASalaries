@@ -1,0 +1,3 @@
+"0",""
+"0","hist.DWS <- ggplot(mData, aes(DWS, fill = DWS)) + geom_histogram(binwidth = .2, colour = ""black"", alpha = .5) + ggtitle(""DWS Histogram"") + theme_bw() + theme(plot.title = element_text(hjust=0.5)) "
+"0","print(hist.DWS)"

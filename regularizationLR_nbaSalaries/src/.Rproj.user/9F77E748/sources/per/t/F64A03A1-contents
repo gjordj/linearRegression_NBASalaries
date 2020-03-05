@@ -1,0 +1,1585 @@
+---
+title: "NBA"
+author: "Jordi Tarroch Mejón"
+date: "10/7/2019"
+output: pdf_document
+---
+
+The process followed is the following:
+- Get the Data.
+- Evaluate diferent methods as a curiosity of which one gives us the best BIC.
+- Choose 4 of the 8 models generated from each automated selection method.
+- Sort them from lowest BIC to biggest BIC.
+- Choose one of the selection methods, we chose Backward StepWise, as this gives us a low BIC.
+- Observe anomalies in data and filter data for each model out of the 4 best models generated and selected.
+- Check Cross-Validation and get MSE for each of the 4 models generated.
+- Select the parameters of the model with lowest MSE. If we square root MSE we'll get the error
+of the prediction in Millions of Salary.
+- Evaluate the properties of the best model.
+ 
+ 
+ 
+ 
+#Activate following packages:
+```{r}
+###########
+#LIBRARIES#
+###########
+library(readr)
+library(dplyr)
+library(tidyverse)
+library(car)
+library(MASS)
+library(leaps)
+
+##########
+#GET DATA####################################################################################################
+##########
+path = '/Users/jorditarrochmejon/Google Drive/DATA SCIENCE-TRADING/1_CUNEF/Prediction/CODE/NBA/CP001/DATA/nba.csv'
+mData = read_csv(path)
+# summary(mData)
+
+###############################
+#RENAME COLUMNS OF A DATAFRAME#
+###############################
+names(mData)[names(mData)=="TS%"]<-"TS"
+names(mData)[names(mData)=="3PAr"]<-"PAr"
+names(mData)[names(mData)=="ORB%"]<-"ORB"
+names(mData)[names(mData)=="DRB%"]<-"DRB"
+names(mData)[names(mData)=="TRB%"]<-"TRB"
+names(mData)[names(mData)=="AST%"]<-"AST"
+names(mData)[names(mData)=="STL%"]<-"STL"
+names(mData)[names(mData)=="BLK%"]<-"BLK"
+names(mData)[names(mData)=="TOV%"]<-"TOV"
+names(mData)[names(mData)=="USG%"]<-"USG"
+names(mData)[24]<-"WSM"
+
+
+```
+
+
+##################
+#SELECTION METHODS##################################################################################
+##################
+1. Best Subset
+```{r}
+library(leaps)
+library(ref.ICAR)
+
+regfit.full = regsubsets(Salary~ NBA_DraftNumber+Age+Tm+G+MP+PER+TS+PAr+FTr+
+              ORB+DRB+TRB+AST+STL+BLK+TOV+USG+OWS+DWS+
+              WS+WSM+OBPM+DBPM+BPM+VORP,mData, really.big=T )
+
+reg.summary=summary(regfit.full)
+IC<-reg.summary
+
+
+for(i in 1:length(IC$bic)){
+   if(IC$bic[i] == sort(IC$bic)[1]){
+    first_best = i
+   }
+  
+  if(IC$bic[i] == sort(IC$bic)[2]){
+    second_best = i
+  }
+ 
+   if(IC$bic[i] == sort(IC$bic)[3]){
+    third_best = i
+   }
+   if(IC$bic[i] == sort(IC$bic)[4]){
+    fourth_best = i
+   }
+}
+best_subset_ic<-IC$bic[first_best]
+print(IC$bic[first_best])
+print(IC$bic[second_best])
+print(IC$bic[third_best])
+print(IC$bic[fourth_best])
+
+#########
+# PSEUDO#
+#########
+# Get variable names used in a model.
+# Get first 4 models with best BIC, its variable names used in the model.
+# Get variable names used in best 4 models based on BIC.
+# Create the 4 best models based on BIC.
+
+model<-as.data.frame(IC$which[first_best,])
+names(model)[1]<-"used"
+parameters_model_first<-c()
+for(i in 1:dim(model)[1]){
+  if(model$used[i] == TRUE){
+    parameters_model_first<- parameters_model_first%>%append(row.names(model)[i])
+  }
+}
+
+model<-as.data.frame(IC$which[second_best,])
+names(model)[1]<-"used"
+parameters_model_second<-c()
+for(i in 1:dim(model)[1]){
+  if(model$used[i] == TRUE){
+    parameters_model_second<- parameters_model_second%>%append(row.names(model)[i])
+  }
+}
+
+model<-as.data.frame(IC$which[third_best,])
+names(model)[1]<-"used"
+parameters_model_third<-c()
+for(i in 1:dim(model)[1]){
+  if(model$used[i] == TRUE){
+    parameters_model_third<- parameters_model_third%>%append(row.names(model)[i])
+  }
+}
+
+model<-as.data.frame(IC$which[fourth_best,])
+names(model)[1]<-"used"
+parameters_model_fourth<-c()
+for(i in 1:dim(model)[1]){
+  if(model$used[i] == TRUE){
+    parameters_model_fourth<- parameters_model_fourth%>%append(row.names(model)[i])
+  }
+}
+
+# Eliminamos variable Intercept de la muestra.
+parameters_model_first<-parameters_model_first[-1]
+parameters_model_second<-parameters_model_second[-1]
+parameters_model_third<-parameters_model_third[-1]
+parameters_model_fourth<-parameters_model_fourth[-1]
+
+for(i in 1:length(parameters_model_first)){
+  if(parameters_model_first[i] == "TmHOU"){
+    parameters_model_first[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_second)){
+  if(parameters_model_second[i] == "TmHOU"){
+    parameters_model_second[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_third)){
+  if(parameters_model_third[i] == "TmHOU"){
+    parameters_model_third[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_fourth)){
+  if(parameters_model_fourth[i] == "TmHOU"){
+    parameters_model_fourth[i]="HOU"
+  }
+}
+
+# 
+# 
+# # Correct TmHou
+# for (i in 1:length(parameters_model_first)){
+#   if("TmHOU" %in% parameters_model_first[i]){
+#     parameters_model_first[i]<-"Tm"}
+# }
+# 
+# for (i in 1:length(parameters_model_second)){
+#   if("TmHOU" %in% parameters_model_second[i]){
+#     parameters_model_second[i]<-"Tm"}
+# }
+# 
+# for (i in 1:length(parameters_model_third)){
+#   if("TmHOU" %in% parameters_model_third[i]){
+#     parameters_model_third[i]<-"Tm"}
+# }
+# 
+# for (i in 1:length(parameters_model_fourth)){
+#   if("TmHOU" %in% parameters_model_fourth[i]){
+#     parameters_model_fourth[i]<-"Tm"}
+# }
+
+for(i in 1:length(parameters_model_first)){
+  if(parameters_model_first[i] == "TmHOU"){
+    parameters_model_first[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_second)){
+  if(parameters_model_second[i] == "TmHOU"){
+    parameters_model_second[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_third)){
+  if(parameters_model_third[i] == "TmHOU"){
+    parameters_model_third[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_fourth)){
+  if(parameters_model_fourth[i] == "TmHOU"){
+    parameters_model_fourth[i]="HOU"
+  }
+}
+
+
+parameters_model_first_best_subset<-parameters_model_first
+parameters_model_second_best_subset<-parameters_model_second
+parameters_model_third_best_subset<-parameters_model_third
+parameters_model_fourth_best_subset<-parameters_model_fourth
+
+##################################################################################
+# CREATION OF THE BEST 4 MODELS OUT OF THE 8 WITH BEST BIC AUTOMATICALLY SELECTED#
+##################################################################################
+#Create first best model
+check <-mData
+
+check<-check%>%mutate(HOU=0)  
+for(i in 1:dim(mData)[1]){   
+  if(mData$Tm[i] == "HOU"){     
+    check$HOU[i] = 1   
+  }
+  else{check$HOU[i] = 0
+  }
+}
+erase_columns<-c()
+for(j in 1:dim(check)[2]){
+  c<-0
+  for( i in 1:length(parameters_model_first)){
+    if(names(check)[j] == parameters_model_first[i]){
+      c<-c+1
+    }
+  }
+  if(c == 0){erase_columns<-c(erase_columns, j)}
+} 
+
+erase_columns<-erase_columns[-1:-3]
+model1 <- check[ -erase_columns ]
+
+#Create second best model
+check <-mData
+
+check<-check%>%mutate(HOU=0)  
+for(i in 1:dim(mData)[1]){   
+  if(mData$Tm[i] == "HOU"){     
+    check$HOU[i] = 1   
+  }
+  else{check$HOU[i] = 0
+  }
+}
+erase_columns<-c()
+for(j in 1:dim(check)[2]){
+  c<-0
+  for( i in 1:length(parameters_model_second)){
+    if(names(check)[j] == parameters_model_second[i]){
+      c<-c+1
+    }
+  }
+  if(c == 0){erase_columns<-c(erase_columns, j)}
+} 
+
+erase_columns<-erase_columns[-1:-3]
+model2 <- check[ -erase_columns ]
+names(model2)
+#Create third best model
+check <-mData
+
+check<-check%>%mutate(HOU=0)  
+for(i in 1:dim(mData)[1]){   
+  if(mData$Tm[i] == "HOU"){     
+    check$HOU[i] = 1   
+  }
+  else{check$HOU[i] = 0
+  }
+}
+
+erase_columns<-c()
+for(j in 1:dim(check)[2]){
+  c<-0
+  for( i in 1:length(parameters_model_third)){
+    if(names(check)[j] == parameters_model_third[i]){
+      c<-c+1
+    }
+  }
+  if(c == 0){erase_columns<-c(erase_columns, j)}
+} 
+
+erase_columns<-erase_columns[-1:-3]
+model3 <- check[ -erase_columns ]
+
+
+#Create fourth best model
+check <-mData 
+check<-check%>%mutate(HOU=0)  
+for(i in 1:dim(mData)[1]){   
+  if(mData$Tm[i] == "HOU"){     
+    check$HOU[i] = 1   
+  }
+  else{check$HOU[i] = 0
+  }
+}
+
+erase_columns<-c()
+for(j in 1:dim(check)[2]){
+  c<-0
+  for( i in 1:length(parameters_model_fourth)){
+    if(names(check)[j] == parameters_model_fourth[i]){
+      c<-c+1
+    }
+  }
+  if(c == 0){erase_columns<-c(erase_columns, j)}
+} 
+
+erase_columns<-erase_columns[-1:-3]
+model4 <- check[ -erase_columns ]
+
+
+
+# 4 MODELS CREATED#############################################################################
+```
+
+
+
+2.Selección Stepwise
+-Forward Stepwise
+```{r}
+library(MASS)
+library(leaps)
+library(fRegression)
+
+
+regfit.fwd<-regsubsets(Salary~ NBA_DraftNumber+Age+Tm+G+MP+PER+TS+PAr+FTr+
+              ORB+DRB+TRB+AST+STL+BLK+TOV+USG+OWS+DWS+
+              WS+WSM+OBPM+DBPM+BPM+VORP,mData,method ="forward")
+
+
+IC<-summary(regfit.fwd)
+
+
+
+for(i in 1:length(IC$bic)){
+   if(IC$bic[i] == sort(IC$bic)[1]){
+    first_best = i
+   }
+  
+  if(IC$bic[i] == sort(IC$bic)[2]){
+    second_best = i
+  }
+ 
+   if(IC$bic[i] == sort(IC$bic)[3]){
+    third_best = i
+   }
+   if(IC$bic[i] == sort(IC$bic)[4]){
+    fourth_best = i
+   }
+}
+forward_stepwise_ic<-IC$bic[first_best]
+print(IC$bic[first_best])
+print(IC$bic[second_best])
+print(IC$bic[third_best])
+print(IC$bic[fourth_best])
+
+
+#########
+# PSEUDO#
+#########
+# Get variable names used in a model.
+# Get first 4 models with best BIC, its variable names used in the model.
+# Get variable names used in best 4 models based on BIC.
+# Create the 4 best models based on BIC.
+
+model<-as.data.frame(IC$which[first_best,])
+names(model)[1]<-"used"
+parameters_model_first<-c()
+for(i in 1:dim(model)[1]){
+  if(model$used[i] == TRUE){
+    parameters_model_first<- parameters_model_first%>%append(row.names(model)[i])
+  }
+}
+
+model<-as.data.frame(IC$which[second_best,])
+names(model)[1]<-"used"
+parameters_model_second<-c()
+for(i in 1:dim(model)[1]){
+  if(model$used[i] == TRUE){
+    parameters_model_second<- parameters_model_second%>%append(row.names(model)[i])
+  }
+}
+
+model<-as.data.frame(IC$which[third_best,])
+names(model)[1]<-"used"
+parameters_model_third<-c()
+for(i in 1:dim(model)[1]){
+  if(model$used[i] == TRUE){
+    parameters_model_third<- parameters_model_third%>%append(row.names(model)[i])
+  }
+}
+
+model<-as.data.frame(IC$which[fourth_best,])
+names(model)[1]<-"used"
+parameters_model_fourth<-c()
+for(i in 1:dim(model)[1]){
+  if(model$used[i] == TRUE){
+    parameters_model_fourth<- parameters_model_fourth%>%append(row.names(model)[i])
+  }
+}
+
+# Eliminamos variable Intercept de la muestra.
+parameters_model_first<-parameters_model_first[-1]
+parameters_model_second<-parameters_model_second[-1]
+parameters_model_third<-parameters_model_third[-1]
+parameters_model_fourth<-parameters_model_fourth[-1]
+
+
+for(i in 1:length(parameters_model_first)){
+  if(parameters_model_first[i] == "TmHOU"){
+    parameters_model_first[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_second)){
+  if(parameters_model_second[i] == "TmHOU"){
+    parameters_model_second[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_third)){
+  if(parameters_model_third[i] == "TmHOU"){
+    parameters_model_third[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_fourth)){
+  if(parameters_model_fourth[i] == "TmHOU"){
+    parameters_model_fourth[i]="HOU"
+  }
+}
+
+# 
+# # Correct TmHou
+# for (i in 1:length(parameters_model_first)){
+#   if("TmHOU" %in% parameters_model_first[i]){
+#     parameters_model_first[i]<-"Tm"}
+# }
+# 
+# for (i in 1:length(parameters_model_second)){
+#   if("TmHOU" %in% parameters_model_second[i]){
+#     parameters_model_second[i]<-"Tm"}
+# }
+# 
+# for (i in 1:length(parameters_model_third)){
+#   if("TmHOU" %in% parameters_model_third[i]){
+#     parameters_model_third[i]<-"Tm"}
+# }
+# 
+# for (i in 1:length(parameters_model_fourth)){
+#   if("TmHOU" %in% parameters_model_fourth[i]){
+#     parameters_model_fourth[i]<-"Tm"}
+# }
+
+parameters_model_first
+parameters_model_second
+parameters_model_third
+parameters_model_fourth
+
+for(i in 1:length(parameters_model_first)){
+  if(parameters_model_first[i] == "TmHOU"){
+    parameters_model_first[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_second)){
+  if(parameters_model_second[i] == "TmHOU"){
+    parameters_model_second[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_third)){
+  if(parameters_model_third[i] == "TmHOU"){
+    parameters_model_third[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_fourth)){
+  if(parameters_model_fourth[i] == "TmHOU"){
+    parameters_model_fourth[i]="HOU"
+  }
+}
+
+parameters_model_first_forward_stepwise<-parameters_model_first
+parameters_model_second_forward_stepwise<-parameters_model_second
+parameters_model_third_forward_stepwise<-parameters_model_third
+parameters_model_fourth_forward_stepwise<-parameters_model_fourth
+
+
+
+##################################################################################
+# CREATION OF THE BEST 4 MODELS OUT OF THE 8 WITH BEST BIC AUTOMATICALLY SELECTED#
+##################################################################################
+#Create first best model
+check <-mData
+check<-check%>%mutate(HOU=0)
+
+for(i in 1:dim(mData)[1]){
+  if(mData$Tm[i] == "HOU"){
+    check$HOU[i] = 1
+  }else{
+    check$HOU[i] = 0
+  }
+}
+
+erase_columns<-c()
+for(j in 1:dim(check)[2]){
+  c<-0
+  for( i in 1:length(parameters_model_first)){
+    if(names(check)[j] == parameters_model_first[i]){
+      c<-c+1
+      print(names(check)[j])
+    }
+  }
+  if(c == 0){erase_columns<-c(erase_columns, j)}
+} 
+
+erase_columns<-erase_columns[-1:-3]
+model1 <- check[ -erase_columns ]
+
+#Create second best model
+check <-mData
+
+check<-check%>%mutate(HOU=0)  
+for(i in 1:dim(mData)[1]){   
+  if(mData$Tm[i] == "HOU"){     
+    check$HOU[i] = 1   
+  }
+  else{check$HOU[i] = 0
+  }
+}
+erase_columns<-c()
+for(j in 1:dim(check)[2]){
+  c<-0
+  for( i in 1:length(parameters_model_second)){
+    if(names(check)[j] == parameters_model_second[i]){
+      c<-c+1
+    }
+  }
+  if(c == 0){erase_columns<-c(erase_columns, j)}
+} 
+
+erase_columns<-erase_columns[-1:-3]
+model2 <- check[ -erase_columns ]
+
+#Create third best model
+check <-mData
+
+check<-check%>%mutate(HOU=0)  
+for(i in 1:dim(mData)[1]){   
+  if(mData$Tm[i] == "HOU"){     
+    check$HOU[i] = 1   
+  }
+  else{check$HOU[i] = 0
+  }
+}
+erase_columns<-c()
+for(j in 1:dim(check)[2]){
+  c<-0
+  for( i in 1:length(parameters_model_third)){
+    if(names(check)[j] == parameters_model_third[i]){
+      c<-c+1
+    }
+  }
+  if(c == 0){erase_columns<-c(erase_columns, j)}
+} 
+
+erase_columns<-erase_columns[-1:-3]
+model3 <- check[ -erase_columns ]
+
+
+#Create fourth best model
+check <-mData
+
+check<-check%>%mutate(HOU=0)  
+for(i in 1:dim(mData)[1]){   
+  if(mData$Tm[i] == "HOU"){     
+    check$HOU[i] = 1   
+  }
+  else{check$HOU[i] = 0
+  }
+}
+erase_columns<-c()
+for(j in 1:dim(check)[2]){
+  c<-0
+  for( i in 1:length(parameters_model_fourth)){
+    if(names(check)[j] == parameters_model_fourth[i]){
+      c<-c+1
+    }
+  }
+  if(c == 0){erase_columns<-c(erase_columns, j)}
+} 
+
+erase_columns<-erase_columns[-1:-3]
+model4 <- check[ -erase_columns ]
+# 4 MODELS CREATED#############################################################################
+```
+
+
+
+-Backward Stepwise
+```{r}
+library(MASS)
+
+regfit.bwd=regsubsets(Salary~ NBA_DraftNumber+Age+Tm+G+MP+PER+TS+PAr+FTr+
+              ORB+DRB+TRB+AST+STL+BLK+TOV+USG+OWS+DWS+
+              WS+WSM+OBPM+DBPM+BPM+VORP,mData,method ="backward")
+
+
+
+IC<-summary (regfit.bwd )
+
+
+
+for(i in 1:length(IC$bic)){
+   if(IC$bic[i] == sort(IC$bic)[1]){
+    first_best = i
+   }
+  
+  if(IC$bic[i] == sort(IC$bic)[2]){
+    second_best = i
+  }
+ 
+   if(IC$bic[i] == sort(IC$bic)[3]){
+    third_best = i
+   }
+   if(IC$bic[i] == sort(IC$bic)[4]){
+    fourth_best = i
+   }
+}
+backward_stepwise_ic<-IC$bic[first_best]
+print(IC$bic[first_best])
+print(IC$bic[second_best])
+print(IC$bic[third_best])
+print(IC$bic[fourth_best])
+
+#########
+# PSEUDO#
+#########
+# Get variable names used in a model.
+# Get first 4 models with best BIC, its variable names used in the model.
+# Get variable names used in best 4 models based on BIC.
+# Create the 4 best models based on BIC.
+
+model<-as.data.frame(IC$which[first_best,])
+names(model)[1]<-"used"
+parameters_model_first<-c()
+for(i in 1:dim(model)[1]){
+  if(model$used[i] == TRUE){
+    parameters_model_first<- parameters_model_first%>%append(row.names(model)[i])
+  }
+}
+
+model<-as.data.frame(IC$which[second_best,])
+names(model)[1]<-"used"
+parameters_model_second<-c()
+for(i in 1:dim(model)[1]){
+  if(model$used[i] == TRUE){
+    parameters_model_second<- parameters_model_second%>%append(row.names(model)[i])
+  }
+}
+
+model<-as.data.frame(IC$which[third_best,])
+names(model)[1]<-"used"
+parameters_model_third<-c()
+for(i in 1:dim(model)[1]){
+  if(model$used[i] == TRUE){
+    parameters_model_third<- parameters_model_third%>%append(row.names(model)[i])
+  }
+}
+
+model<-as.data.frame(IC$which[fourth_best,])
+names(model)[1]<-"used"
+parameters_model_fourth<-c()
+for(i in 1:dim(model)[1]){
+  if(model$used[i] == TRUE){
+    parameters_model_fourth<- parameters_model_fourth%>%append(row.names(model)[i])
+  }
+}
+
+# Eliminamos variable Intercept de la muestra.
+parameters_model_first<-parameters_model_first[-1]
+parameters_model_second<-parameters_model_second[-1]
+parameters_model_third<-parameters_model_third[-1]
+parameters_model_fourth<-parameters_model_fourth[-1]
+
+
+for(i in 1:length(parameters_model_first)){
+  if(parameters_model_first[i] == "TmHOU"){
+    parameters_model_first[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_second)){
+  if(parameters_model_second[i] == "TmHOU"){
+    parameters_model_second[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_third)){
+  if(parameters_model_third[i] == "TmHOU"){
+    parameters_model_third[i]="HOU"
+  }
+}
+for(i in 1:length(parameters_model_fourth)){
+  if(parameters_model_fourth[i] == "TmHOU"){
+    parameters_model_fourth[i]="HOU"
+  }
+}
+
+# 
+# # Correct TmHou
+# for (i in 1:length(parameters_model_first)){
+#   if("TmHOU" %in% parameters_model_first[i]){
+#     parameters_model_first[i]<-"Tm"}
+# }
+# 
+# for (i in 1:length(parameters_model_second)){
+#   if("TmHOU" %in% parameters_model_second[i]){
+#     parameters_model_second[i]<-"Tm"}
+# }
+# 
+# for (i in 1:length(parameters_model_third)){
+#   if("TmHOU" %in% parameters_model_third[i]){
+#     parameters_model_third[i]<-"Tm"}
+# }
+# 
+# for (i in 1:length(parameters_model_fourth)){
+#   if("TmHOU" %in% parameters_model_fourth[i]){
+#     parameters_model_fourth[i]<-"Tm"}
+# }
+
+# parameters_model_first
+# parameters_model_second
+# parameters_model_third
+# parameters_model_fourth
+
+parameters_model_first_backward_stepwise<-parameters_model_first
+parameters_model_second_backward_stepwise<-parameters_model_second
+parameters_model_third_backward_stepwise<-parameters_model_third
+parameters_model_fourth_backward_stepwise<-parameters_model_fourth
+
+##################################################################################
+# CREATION OF THE BEST 4 MODELS OUT OF THE 8 WITH BEST BIC AUTOMATICALLY SELECTED#
+##################################################################################
+#Create first best model
+check <-mData
+
+check<-check%>%mutate(HOU=0)  
+for(i in 1:dim(mData)[1]){   
+  if(mData$Tm[i] == "HOU"){     
+    check$HOU[i] = 1   
+  }
+  else{check$HOU[i] = 0
+  }
+}
+erase_columns<-c()
+for(j in 1:dim(check)[2]){
+  c<-0
+  for( i in 1:length(parameters_model_first)){
+    if(names(check)[j] == parameters_model_first[i]){
+      c<-c+1
+    }
+  }
+  if(c == 0){erase_columns<-c(erase_columns, j)}
+} 
+
+erase_columns<-erase_columns[-1:-3]
+model1 <- check[ -erase_columns ]
+
+#Create second best model
+check <-mData
+
+check<-check%>%mutate(HOU=0)  
+for(i in 1:dim(mData)[1]){   
+  if(mData$Tm[i] == "HOU"){     
+    check$HOU[i] = 1   
+  }
+  else{check$HOU[i] = 0
+  }
+}
+erase_columns<-c()
+for(j in 1:dim(check)[2]){
+  c<-0
+  for( i in 1:length(parameters_model_second)){
+    if(names(check)[j] == parameters_model_second[i]){
+      c<-c+1
+    }
+  }
+  if(c == 0){erase_columns<-c(erase_columns, j)}
+} 
+
+erase_columns<-erase_columns[-1:-3]
+model2 <- check[ -erase_columns ]
+
+#Create third best model
+check <-mData
+check<-check%>%mutate(HOU=0)  
+for(i in 1:dim(mData)[1]){   
+  if(mData$Tm[i] == "HOU"){     
+    check$HOU[i] = 1   
+  }
+  else{check$HOU[i] = 0
+  }
+}
+erase_columns<-c()
+for(j in 1:dim(check)[2]){
+  c<-0
+  for( i in 1:length(parameters_model_third)){
+    if(names(check)[j] == parameters_model_third[i]){
+      c<-c+1
+    }
+  }
+  if(c == 0){erase_columns<-c(erase_columns, j)}
+} 
+
+erase_columns<-erase_columns[-1:-3]
+model3 <- check[ -erase_columns ]
+
+
+#Create fourth best model
+check <-mData
+check<-check%>%mutate(HOU=0)  
+for(i in 1:dim(mData)[1]){   
+  if(mData$Tm[i] == "HOU"){     
+    check$HOU[i] = 1   
+  }
+  else{check$HOU[i] = 0
+  }
+}
+erase_columns<-c()
+for(j in 1:dim(check)[2]){
+  c<-0
+  for( i in 1:length(parameters_model_fourth)){
+    if(names(check)[j] == parameters_model_fourth[i]){
+      c<-c+1
+    }
+  }
+  if(c == 0){erase_columns<-c(erase_columns, j)}
+} 
+
+erase_columns<-erase_columns[-1:-3]
+model4 <- check[ -erase_columns ]
+# 4 MODELS CREATED#############################################################################
+
+
+
+# parameters_model_first
+# parameters_model_second
+# parameters_model_third
+# parameters_model_fourth
+##############################
+# CHECK BEST METHOD SELECTION#
+##############################
+cat("Best Subset IC", best_subset_ic, "\n")
+cat("Forward Stepwise IC", forward_stepwise_ic, "\n")
+cat("Backward Stepwise IC", backward_stepwise_ic, "\n")
+cat("The method Selection with best IC (lowest IC) are Best Subset and Backward Stepwise")
+```
+END OF SELECTION METHODS###############################################################################
+
+
+
+
+
+#######################
+#OBSERVACIONES ANÓMALAS filtered1######################################################################
+#######################
+(1) Atípicos:
+Una observación es atípica si el residuo asociado es grande. 
+(2) Extrema o Apalancada:
+Una observación es extrema (o potencialmente influyente o apalancada) si se encuentra apreciablemente alejada del resto de observaciones de la muestra. 
+(3) Influyente:
+Una observación es influyente si la presencia de dicha observación en la muestra altera significativamente algún aspecto de la estimación del modelo.
+```{r}
+
+######################
+#CARRY OUT REGRESSION#
+######################
+
+# names(model1)
+# names(model2)
+# names(model3)
+# names(model4)
+parameters_model_first_backward_stepwise
+parameters_model_second_backward_stepwise
+parameters_model_third_backward_stepwise
+parameters_model_fourth_backward_stepwise
+
+regres01=lm(Salary~ NBA_DraftNumber+Age+G+MP+WS,data=check)
+regres02=lm(Salary~ NBA_DraftNumber+Age+HOU+G+MP,data=check)
+regres03=lm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+TRB+WS,data=check)
+regres04=lm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+ORB+TRB+WS,data=check)
+```
+
+###########
+# OUTLIERS#
+###########
+```{r}
+# Assessing outliers
+outlierTest(regres01)
+outlierTest(regres02)
+outlierTest(regres03)
+outlierTest(regres04)
+```
+###############################################
+# HIGH LEVERAGE POINTS->Erase from the dataset#
+###############################################
+```{r}
+#  Identifying high leverage points
+hat.plot <- function(fit) {
+  p <- length(coefficients(fit))
+  n <- length(fitted(fit))
+  plot(hatvalues(fit), main="Index Plot of Hat Values")
+  abline(h=c(2,3)*p/n, col="red", lty=2)
+  identify(1:n, hatvalues(fit), names(hatvalues(fit)))
+}
+hat.plot(regres01)
+
+```
+
+####################################################
+# INFLUENTIAL OBSERVATIONS-> Erase from the dataset#
+####################################################
+```{r}
+# Identifying influential observations
+
+# Cooks Distance D
+# identify D values > 4/(n-k-1) 
+cutoff <- 4/(nrow(check)-length(regres01$coefficients)-2)
+plot(regres01, which=4, cook.levels=cutoff)+
+abline(h=cutoff, lty=2, col="red")
+
+# Cooks Distance D
+# identify D values > 4/(n-k-1) 
+cutoff <- 4/(nrow(check)-length(regres02$coefficients)-2)
+plot(regres01, which=4, cook.levels=cutoff)+
+abline(h=cutoff, lty=2, col="red")
+
+# Cooks Distance D
+# identify D values > 4/(n-k-1) 
+cutoff <- 4/(nrow(check)-length(regres03$coefficients)-2)
+plot(regres01, which=4, cook.levels=cutoff)+
+abline(h=cutoff, lty=2, col="red")
+
+# Cooks Distance D
+# identify D values > 4/(n-k-1) 
+cutoff <- 4/(nrow(check)-length(regres04$coefficients)-2)
+plot(regres01, which=4, cook.levels=cutoff)+
+abline(h=cutoff, lty=2, col="red")
+```
+
+
+
+```{r}
+# Influence Plot
+influencePlot(regres01, main="Influence Plot 1", 
+              sub="Circle size is proportional to Cook's Distance" )
+# Influence Plot
+influencePlot(regres02, main="Influence Plot 2", 
+              sub="Circle size is proportional to Cook's Distance" )
+# Influence Plot
+influencePlot(regres03, main="Influence Plot 3", 
+              sub="Circle size is proportional to Cook's Distance" )
+# Influence Plot
+influencePlot(regres04, main="Influence Plot 4", 
+              sub="Circle size is proportional to Cook's Distance" )
+
+```
+      
+```{r}
+# StudRes
+# <dbl>
+# Hat
+# <dbl>
+# CookD
+# <dbl>
+# 114	4.2632261	0.009536052	0.028155028	
+# 194	1.0614194	0.046872313	0.009231523	
+# 229	-3.0758790	0.045776304	0.074331584	
+# 296	0.4743764	0.070640588	0.002855412	
+# 328	4.4759462	0.016250905	0.053050334	
+	
+```
+
+
+
+```{r}
+# Added variable plots
+# add id.method="identify" to interactively identify points
+avPlots(regres01, ask=FALSE)
+
+# Added variable plots
+# add id.method="identify" to interactively identify points
+avPlots(regres02, ask=FALSE)
+
+# Added variable plots
+# add id.method="identify" to interactively identify points
+avPlots(regres03, ask=FALSE)
+
+# Added variable plots
+# add id.method="identify" to interactively identify points
+avPlots(regres04, ask=FALSE)
+```
+FIN OBSERVACIONES ANÓMALAS######################################################################
+
+
+
+
+##################
+#FIRST MODEL TEST#
+##################
+
+#NEW REGRESSION WITH DATA FILTERED1#############################################################
+###################################
+```{r}
+# StudRes
+# <dbl>
+# Hat
+# <dbl>
+# CookD
+# <dbl>
+
+# 114	4.2632261	0.009536052	0.028155028	
+# 194	1.0614194	0.046872313	0.009231523	
+# 229	-3.0758790	0.045776304	0.074331584	
+# 296	0.4743764	0.070640588	0.002855412	
+# 328	4.4759462	0.016250905	0.053050334	
+filtered1<-check
+erase_rows<-c(70,114, 229, 194, 296,328)
+filtered1 <- filtered1[-erase_rows,]
+```
+###########END OF NEW REGRESSION WITH DATA FILTERED##########################################################
+
+
+
+
+
+
+
+
+
+
+
+
+##################
+#CROSS-VALIDATION filtered1############################################################################
+##################
+```{r}
+library(ISLR)
+library(gvlma)
+set.seed(250)
+numData=nrow(filtered1)
+train=sample(numData ,numData/2)
+
+parameters_model_first_backward_stepwise
+regres.train =lm(Salary~ NBA_DraftNumber+Age+G+MP+WS,filtered1 ,subset =train )
+
+attach(filtered1)
+mean((Salary-predict(regres.train ,Auto))[-train ]^2)
+
+
+set.seed(251)
+regres.train2 =lm(Salary~ NBA_DraftNumber+Age+G+MP+WS,filtered1 ,subset =train )
+r<-mean((Salary-predict(regres.train2 ,Auto))[-train ]^2)
+r
+error_model1<-sqrt(r)
+cat("We are going to be wrong in our prediction around", sqrt(r), "$")
+
+```
+
+
+
+
+
+Leave-One-Out Cross-Validation
+```{r}
+library (boot)
+parameters_model_first_backward_stepwise
+glm.fit1=glm(Salary~ NBA_DraftNumber+Age+G+MP+WS,filtered1,family = gaussian())
+
+
+coef(glm.fit1)
+
+
+cv.err =cv.glm(filtered1,glm.fit1)
+cv.err$delta
+glm.fit2=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+WS,filtered1,family = gaussian())
+cv.err2 =cv.glm(filtered1,glm.fit2)
+cv.err2$delta
+
+glm.fit1=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+WS,filtered1,family = gaussian())
+
+cv.err =cv.glm(filtered1,glm.fit1,K=10)
+cv.err$delta
+
+glm.fit2=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+WS,filtered1,family = gaussian())
+cv.err2 =cv.glm(filtered1,glm.fit2,K=10)
+cv.err2$delta
+```
+#END OF CROSS-VALIDATION########################################################
+
+
+
+##################
+#SECOND MODEL TEST###################################################################################
+##################
+
+#NEW REGRESSION WITH DATA filtered2#############################################################
+###################################
+```{r}
+# StudRes
+# <dbl>
+# Hat
+# <dbl>
+# CookD
+# <dbl>
+# 114	4.2559677	0.08078916	0.04381844	
+# 194	1.6428464	0.11669390	0.01014907	
+# 328	4.0827552	0.08211991	0.04117527	
+# 429	0.8959193	0.11911435	0.00310245
+	
+filtered2<-check
+erase_rows<-c(70, 229,114, 194, 429,328)
+filtered2 <- filtered2[-erase_rows,]
+```
+###########END OF NEW REGRESSION WITH DATA FILTERED##########################################################
+
+
+
+
+
+
+
+
+
+
+
+
+##################
+#CROSS-VALIDATION filtered1############################################################################
+##################
+```{r}
+library(ISLR)
+library(gvlma)
+set.seed(250)
+numData=nrow(filtered2)
+train=sample(numData ,numData/2)
+
+
+
+parameters_model_second_backward_stepwise
+regres.train =lm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+WS,filtered2 ,subset =train )
+
+attach(filtered2)
+mean((Salary-predict(regres.train ,Auto))[-train ]^2)
+
+
+set.seed(251)
+regres.train2 =lm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+WS,filtered2 ,subset =train )
+r<-mean((Salary-predict(regres.train2 ,Auto))[-train ]^2)
+r
+error_model2<-sqrt(r)
+cat("We are going to be wrong in our prediction around", sqrt(r), "$")
+
+```
+
+
+
+
+
+Leave-One-Out Cross-Validation
+```{r}
+library (boot)
+
+glm.fit1=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+WS,filtered2,family = gaussian())
+
+
+coef(glm.fit1)
+
+
+cv.err =cv.glm(filtered2,glm.fit1)
+cv.err$delta
+glm.fit2=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+WS,filtered2,family = gaussian())
+cv.err2 =cv.glm(filtered2,glm.fit2)
+cv.err2$delta
+
+glm.fit1=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+WS,filtered2,family = gaussian())
+
+cv.err =cv.glm(filtered2,glm.fit1,K=10)
+cv.err$delta
+
+glm.fit2=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+WS,filtered2,family = gaussian())
+cv.err2 =cv.glm(filtered2,glm.fit2,K=10)
+cv.err2$delta
+```
+#END OF CROSS-VALIDATION########################################################
+
+
+
+
+
+##################
+#THIRD MODEL TEST###################################################################################
+##################
+
+#NEW REGRESSION WITH DATA filtered3#############################################################
+###################################
+```{r}
+# 114	4.3845261	0.08331620	0.045377111	
+# 194	0.7428795	0.14579735	0.002548346	
+# 296	1.2936442	0.15196862	0.008093150	
+# 328	4.4133870	0.08329937	0.045941308	
+	
+filtered3<-check
+erase_rows<-c(70, 229, 114, 194, 296,328)
+filtered3 <- filtered3[-erase_rows,]
+```
+###########END OF NEW REGRESSION WITH DATA FILTERED##########################################################
+
+
+
+
+
+
+
+
+
+
+
+
+##################
+#CROSS-VALIDATION filtered3 ############################################################################
+##################
+```{r}
+library(ISLR)
+library(gvlma)
+set.seed(250)
+numData=nrow(filtered3)
+train=sample(numData ,numData/2)
+
+
+
+parameters_model_third_backward_stepwise
+regres.train =lm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+TRB+WS,filtered3 ,subset =train )
+
+attach(filtered3)
+mean((Salary-predict(regres.train ,Auto))[-train ]^2)
+
+
+set.seed(251)
+regres.train2 =lm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+TRB+WS,filtered3 ,subset =train )
+r<-mean((Salary-predict(regres.train2 ,Auto))[-train ]^2)
+r
+error_model3<-sqrt(r)
+cat("We are going to be wrong in our prediction around", sqrt(r), "$")
+
+```
+
+
+
+
+
+Leave-One-Out Cross-Validation
+```{r}
+library (boot)
+
+glm.fit1=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+TRB+WS,filtered3,family = gaussian())
+
+
+coef(glm.fit1)
+
+
+cv.err =cv.glm(filtered3,glm.fit1)
+cv.err$delta
+glm.fit2=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+TRB+WS,filtered3,family = gaussian())
+cv.err2 =cv.glm(filtered3,glm.fit2)
+cv.err2$delta
+
+glm.fit1=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+TRB+WS,filtered3,family = gaussian())
+
+cv.err =cv.glm(filtered3,glm.fit1,K=10)
+cv.err$delta
+
+glm.fit2=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+TRB+WS,filtered3,family = gaussian())
+cv.err2 =cv.glm(filtered3,glm.fit2,K=10)
+cv.err2$delta
+```
+#END OF CROSS-VALIDATION########################################################
+
+
+
+
+##################
+#FOURTH MODEL TEST###################################################################################
+##################
+
+#NEW REGRESSION WITH DATA filtered4#############################################################
+###################################
+```{r}
+# StudRes
+# <dbl>
+# Hat
+# <dbl>
+# CookD
+# <dbl>
+
+# 114	4.3576869	0.08372868	0.0438978287	
+# 225	0.1775986	0.24637139	0.0002719384	
+# 240	-0.3621925	0.15669959	0.0006427260	
+# 328	4.2576119	0.09531112	0.0484020015	
+	
+filtered4<-check
+erase_rows<-c(70, 229, 114, 225, 240,328)
+filtered4 <- filtered4[-erase_rows,]
+```
+###########END OF NEW REGRESSION WITH DATA FILTERED##########################################################
+
+
+
+
+
+
+
+
+
+
+
+
+##################
+#CROSS-VALIDATION filtered4 ############################################################################
+##################
+```{r}
+library(ISLR)
+library(gvlma)
+set.seed(250)
+numData=nrow(filtered4)
+train=sample(numData ,numData/2)
+
+
+
+parameters_model_fourth_backward_stepwise
+regres.train =lm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+ORB+TRB+WS,filtered4 ,subset =train )
+
+attach(filtered4)
+mean((Salary-predict(regres.train ,Auto))[-train ]^2)
+
+
+set.seed(251)
+regres.train2 =lm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+ORB+TRB+WS,filtered4 ,subset =train )
+r<-mean((Salary-predict(regres.train2 ,Auto))[-train ]^2)
+r
+error_model4<-sqrt(r)
+cat("We are going to be wrong in our prediction around", sqrt(r), "$")
+
+```
+
+
+
+
+
+Leave-One-Out Cross-Validation
+```{r}
+library (boot)
+
+glm.fit1=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+ORB+TRB+WS,filtered4,family = gaussian())
+
+
+coef(glm.fit1)
+
+
+cv.err =cv.glm(filtered4,glm.fit1)
+cv.err$delta
+glm.fit2=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+ORB+TRB+WS,filtered4,family = gaussian())
+cv.err2 =cv.glm(filtered4,glm.fit2)
+cv.err2$delta
+
+glm.fit1=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+ORB+TRB+WS,filtered4,family = gaussian())
+
+cv.err =cv.glm(filtered4,glm.fit1,K=10)
+cv.err$delta
+
+glm.fit2=glm(Salary~ NBA_DraftNumber+Age+HOU+G+MP+ORB+TRB+WS,filtered4,family = gaussian())
+cv.err2 =cv.glm(filtered4,glm.fit2,K=10)
+cv.err2$delta
+```
+#END OF CROSS-VALIDATION########################################################
+
+
+
+##########################
+#FINAL CONCLUSIONS MODELS###################################################################################
+##########################
+```{r}
+cat(" After choosing the best 4 models from one of these automated selection methods \n (best subset, forward stepwise, backward stepwise), we've filtered the data for each model and we've calculated \n the MSE or also the Error in Millions (if we square root the MSE) for each one.\n 
+We have ordered each model based on its BIC, which penalizes the amount of variables, but after calculating\n its MSE, we can see that lowest BIC doesn't mean lowest MSE. \n These are the results of the error in Millions for each model ordered by lowest BIC:
+Model 1:", error_model1,
+"Model 2:", error_model2,
+"Model 3:", error_model3,
+"Model 4:", error_model4, "\n
+\n The model with less prediction error is the one with these parameters.:\n
+", parameters_model_fourth_backward_stepwise,"\n
+Lowet BIC doesn't mean lowest MSE. In fact BIC penalizes adding variables."
+)
+
+```
+
+
+
+
+
+
+
+                            #################
+###########################CHECK PROPERTIES################################################
+                          #################
+###########
+#NORMALITY#####################################################################################
+###########
+Comprobar si un conjunto de datos muestrales están generados por una distribución teórica como la normal , la exponencial, …
+
+
+```{r}
+# Plots empirical quantiles of a variable, or of studentized residuals from a linear model, against theoretical quantiles of a comparison distribution.
+qqPlot(regres04, labels=row.names(filtered1), id.method="identify",
+       simulate=TRUE, main="Q-Q Plot")
+```
+
+
+Histograma + densidad + normal + rug
+
+¿Qué son los Studentized Residual?
+
+This is an important technique in the detection of outliers.
+Dividing a statistic by a sample standard deviation is called studentizing, in analogy with standardizing and normalizing.
+
+Typically the standard deviations of residuals in a sample vary greatly from one data point to another even when the errors all have the same standard deviation, particularly in regression analysis; thus it does not make sense to compare residuals at different data points without first studentizing.
+
+¿La media de los residuos y la constante?
+
+¿Diferencia entre histograma y densidad?
+
+A density plot is a smoothed, continuous version of a histogram estimated from the data. The most common form of estimation is known as kernel density estimation. In this method, a continuous curve (the kernel) is drawn at every individual data point and all of these curves are then added together to make a single smooth density estimation. The kernel most often used is a Gaussian (which produces a Gaussian bell curve at each data point).
+
+```{r}
+residplot <- function(fit, nbreaks=10) {
+  z <- rstudent(fit)
+  hist(z, breaks=nbreaks, freq=FALSE,
+       xlab="Studentized Residual",
+       main="Distribution of Errors")
+  rug(jitter(z), col="brown")
+  curve(dnorm(x, mean=mean(z), sd=sd(z)),
+        add=TRUE, col="blue", lwd=2)
+  lines(density(z)$x, density(z)$y,
+        col="red", lwd=2, lty=2)
+  legend("topright",
+         legend = c( "Normal Curve", "Kernel Density Curve"),
+         lty=1:2, col=c("blue","red"), cex=.7)
+}
+residplot(regres04)
+```
+
+
+
+```{r}
+vResid=resid(regres04)
+library(fBasics)
+jbTest(vResid)
+
+#We see in this Jarque - Bera Normality Test that the distribution is not Normal because the p-value is <<<<5%
+```
+
+
+```{r}
+shapiro.test(vResid)##The distribution is not Normal because the p-value is <<<<5%
+
+```
+################################################################################################
+
+
+
+###########
+#LINEALITY#
+###########
+Componentes o Gráficos de residuos parciales
+Se grafican los valores ajustados con respecto a los predictores, si no hay problemas de linealidad se obtiene un recta sobre las que se representan los puntos.
+
+Los gráficos se incluyen una estimación suavizada (verde) que debería aproximarse a la linea recta (roja).
+
+```{r}
+crPlots(regres04)
+```
+########################
+#PROPERTIES CONCLUSIONS#
+########################
+For big values, MP, WS, TRB and Age we have problems of lineality.
+Big issue with the parameter HOU.
+################################################################################################
+
+
+
+######################################
+#VARIANZA CONSTANTE. HOMOCEDASTICIDAD########################################################
+######################################
+Variance is the expectation of the squared deviation of a random variable from its mean. Informally, it measures how far a set of (random) numbers are spread out from their average value. The variance is the square of the standard deviation, the second central moment of a distribution, and the covariance of the random variable with itself.
+Example: We can have two populations with the same mean but different variances. The red population has mean 100 and variance 100 (SD=10) while the blue population has mean 100 and variance 2500 (SD=50).
+
+Homoscedasticity: all its random variables have the same finite variance. The complementary notion is called heteroscedasticity. The assumption of homoscedasticity simplifies mathematical and computational treatment. Serious violations in homoscedasticity (assuming a distribution of data is homoscedastic when in reality it is heteroscedastic) may result in overestimating the goodness of fit.
+
+```{r}
+ncvTest(regres04)
+
+```
+
+```{r}
+spreadLevelPlot(regres04)
+
+```
+################################################################################################
+
+
+
+
+
+###################
+#GLOBAL VALIDATION##############################################################################
+###################
+An easy-to-implement global procedure for testing the four assumptions of the linear model is proposed. Test de Peña, EA and Slate, EH (2006). “Global validation of linear model assumptions,” J.Amer. Statist. Assoc., 101(473):341-354.
+
+```{r}
+library(gvlma)
+gvmodel <- gvlma(regres04) 
+summary(gvmodel)
+```
+########################
+#PROPERTIES CONCLUSIONS#
+########################
+The model has heteroscedasticty. That's not good.
+################################################################################################
+
+
+
+
+
+
+##################
+#MULTICOLINEALIDAD############################################################################
+##################
+Es la existencia de alta correlación entre los predictores puede producir problemas de imprecisión de los estimadores.
+En algunas ocasiones el añadir nuevos datos, el valor de los estimadores cambian bastante, entonces seguramente es causado por la multicolinealidad.
+
+
+```{r}
+vif(regres04) 
+```
+
+```{r}
+sqrt(vif(regres04)) > 2 # problem?
+
+```
+########################
+#PROPERTIES CONCLUSIONS#
+########################
+Iissues with parameters G and MP because of multicolineality.
+
+####################END OF CHECKING PROPERTIES###############################################################
+#######################################################################################################
+#######################################################################################################
+
+
+
+
+
+
+
+
+
+
+

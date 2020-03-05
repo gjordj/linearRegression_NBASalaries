@@ -1,0 +1,4 @@
+"0",""
+"0","# Added variable plots"
+"0","# add id.method=""identify"" to interactively identify points"
+"0","avPlots(regres02, ask=FALSE)"

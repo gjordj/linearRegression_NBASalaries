@@ -1,0 +1,6 @@
+"0",""
+"0","#OWS"
+"0","ggplot(data = mData, aes(x = OWS)) +"
+"0","    geom_histogram(aes(y = ..density..), binwidth = .2, colour = ""grey"", fill = ""#7DA1EB"") +"
+"0","    geom_density(alpha = .2, fill = ""#E8E6B7"") +"
+"0","    scale_y_continuous(sec.axis = sec_axis(~. *2, name = ""Frecuency"") )"

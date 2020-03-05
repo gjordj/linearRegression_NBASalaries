@@ -1,0 +1,59 @@
+"0","cat("" After choosing the best 4 models from one of these automated selection methods \n (best subset, forward stepwise, backward stepwise), we've filtered the data for each model and we've calculated \n the MSE or also the Error in Millions (if we square root the MSE) for each one.\n "
+"0","We have ordered each model based on its BIC, which penalizes the amount of variables, but after calculating\n its MSE, we can see that lowest BIC doesn't mean lowest MSE. \n These are the results of the error in Millions for each model ordered by lowest BIC:"
+"0","Model 1:"", error_model1,"
+"0","""Model 2:"", error_model2,"
+"0","""Model 3:"", error_model3,"
+"0","""Model 4:"", error_model4, ""\n"
+"0","\n The model with less prediction error is the one with these parameters.:\n"
+"0",""", parameters_model_fourth_backward_stepwise,""\n"
+"0","Lowet BIC doesn't mean lowest MSE. In fact BIC penalizes adding variables."""
+"0",")"
+"1"," After choosing the best 4 models from one of these automated selection methods 
+ (best subset, forward stepwise, backward stepwise), we've filtered the data for each model and we've calculated 
+ the MSE or also the Error in Millions (if we square root the MSE) for each one.
+ 
+We have ordered each model based on its BIC, which penalizes the amount of variables, but after calculating
+ its MSE, we can see that lowest BIC doesn't mean lowest MSE. 
+ These are the results of the error in Millions for each model ordered by lowest BIC:
+Model 1:"
+"1"," "
+"1","4783811"
+"1"," "
+"1","Model 2:"
+"1"," "
+"1","4780771"
+"1"," "
+"1","Model 3:"
+"1"," "
+"1","4745769"
+"1"," "
+"1","Model 4:"
+"1"," "
+"1","4736522"
+"1"," "
+"1","
+
+
+ The model with less prediction error is the one with these parameters.:
+
+"
+"1"," "
+"1","NBA_DraftNumber"
+"1"," "
+"1","Age"
+"1"," "
+"1","HOU"
+"1"," "
+"1","G"
+"1"," "
+"1","MP"
+"1"," "
+"1","ORB"
+"1"," "
+"1","TRB"
+"1"," "
+"1","WS"
+"1"," "
+"1","
+
+Lowet BIC doesn't mean lowest MSE. In fact BIC penalizes adding variables."

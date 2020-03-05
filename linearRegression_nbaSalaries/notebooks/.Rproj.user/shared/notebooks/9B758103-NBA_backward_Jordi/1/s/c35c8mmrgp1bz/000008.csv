@@ -1,0 +1,43 @@
+"0","###########"
+"0","#LIBRARIES#"
+"0","###########"
+"0","library(readr)"
+"0","library(dplyr)"
+"0","library(tidyverse)"
+"0","library(car)"
+"0","library(MASS)"
+"0","library(leaps)"
+"0",""
+"0","##########"
+"0","#GET DATA####################################################################################################"
+"0","##########"
+"0","path = '../data/nba.csv'"
+"0","mData = read_csv(path)"
+"2","Parsed with column specification:
+cols(
+  .default = col_double(),
+  Player = [31mcol_character()[39m,
+  NBA_Country = [31mcol_character()[39m,
+  Tm = [31mcol_character()[39m
+)
+"
+"2","See spec(...) for full column specifications.
+"
+"0","# summary(mData)"
+"0",""
+"0","###############################"
+"0","#RENAME COLUMNS OF A DATAFRAME#"
+"0","###############################"
+"0","names(mData)[names(mData)==""TS%""]<-""TS"""
+"0","names(mData)[names(mData)==""3PAr""]<-""PAr"""
+"0","names(mData)[names(mData)==""ORB%""]<-""ORB"""
+"0","names(mData)[names(mData)==""DRB%""]<-""DRB"""
+"0","names(mData)[names(mData)==""TRB%""]<-""TRB"""
+"0","names(mData)[names(mData)==""AST%""]<-""AST"""
+"0","names(mData)[names(mData)==""STL%""]<-""STL"""
+"0","names(mData)[names(mData)==""BLK%""]<-""BLK"""
+"0","names(mData)[names(mData)==""TOV%""]<-""TOV"""
+"0","names(mData)[names(mData)==""USG%""]<-""USG"""
+"0","names(mData)[24]<-""WSM"""
+"0",""
+"0",""

@@ -1,0 +1,546 @@
+# 
+#   title: "CP002_NBA_Regularization_Jordi_Tarroch"
+# author: "Jordi Tarroch"
+# date: "10/14/2019"
+# output: 
+#   pdf_document:
+#   latex_engine: xelatex
+
+
+  
+  
+  #GETTING THE RIGHT DATA
+  
+
+
+###########
+#LIBRARIES#
+###########
+library(rsample)  # data splitting 
+library(glmnet)   # implementing regularized regression approaches
+library(dplyr)    # basic data manipulation procedures
+library(ggplot2)  # plotting
+library(caret)
+library(readr)
+library(corrplot)
+library("Hmisc")
+
+
+##########
+#GET DATA####################################################################################################
+##########
+path = '/Users/jorditarrochmejon/Google Drive/DATA SCIENCE-TRADING/1_CUNEF/Prediction/Prediction_Code/NBA/CP002/DATA/nba.csv'
+mData = read_csv(path)
+dim(mData)
+################
+# TREATING DATA#
+################
+#Creating a column for the Categorical Variable "HOU" ( creating a dummy variable) from the Tm (teams) column: a categorical variable is a variable that can take on one of a limited, and usually fixed number of possible values, assigning each individual or other unit of observation to a particular group or nominal category on the basis of some qualitative property.
+# HOU is a categorical variable in the dataset as we saw in the previous exercise of linear regression models, where R automatically created the dummies and HOU was one of them and an important one, as it was chosen by a variable automated selection process. 
+
+newData <-mData
+newData<-newData%>%mutate(HOU=0)  
+for(i in 1:dim(newData)[1]){   
+  if(newData$Tm[i] == "HOU"){     
+    newData$HOU[i] = 1   
+  }
+  else{newData$HOU[i] = 0
+  }
+}
+
+
+#################
+# FILTERING DATA#
+#################
+#Erasing non-numerical columns and NAs:
+summary(newData)
+
+na_rows <- filter(newData,is.na(newData$`TS%`), is.na(newData$`3PAr`),  is.na(newData$FTr), is.na(newData$`TOV%`))
+cat(" There are", dim(na_rows)[1], "rows with NA values. Not a significant amount compared to the size of the dataset, so we can erase them.")
+
+#We erase the columns with character's class (qualitative variables): Player, NBA_Country and Tm as we want to work with quantitative variables, not qualitative to use and evaluate the techniques we are going to use.
+# Although model.matrix() will automatically transform any qualitative variables (if any) into dummy variables, which is important because glmnet() can only take numerical, quantitative inputs.
+# Also, by domain expertise, the name of a player and being from one country shouldn't really influence the salary. We could talk about the team, but we already saw ( in the previous exercise of linnear regressions) that the most influential team is HOU. So that's why we created the dummy variable HOU as we want to consider it in our study. 
+erase_columns<-c(1, 3, 6)
+newData <- newData[,-erase_columns]
+newData<-na.omit(newData)
+```
+
+
+
+#EXPLORATORY DATA ANALYSIS
+
+# How is our dataset? Will we be able to predict the Salary of NBA players with it?
+#   
+#   
+#   As there are 25 variables related to each Player, we select the most influential ones ( with at least a +-30% of correlation with Salary) numerical variables :
+#   
+#   Salary	1.0000000	0.3
+# 
+# NBA_DraftNumber	-0.3806641	0.3
+# Age	0.3360008	0.3
+# MP	0.5050952	0.3
+# OWS	0.5619889	0.3
+# DWS	0.5037944	0.3
+# WS	0.5913067	0.3
+# BPM	0.3087374	0.3
+# VORP	0.5732951	0.3
+# 
+# Target Variable to Predict:
+#   - Salary: amount they earn.
+# 
+# Predictive Variables:
+#   - NBA_DraftNumber: annual event dating back to 1947 in which the teams from the National Basketball Association (NBA) can draft players who are eligible and wish to join the league.
+# 
+# - Age
+# 
+# - MP: Minutes Played
+# 
+# - OWS (Offensive Win Share): An estimate of the number of wins contributed by a player due to his offense.
+# - DWS ( Defensive Win Shares): An estimate of the number of wins contributed by a player due to his defense.
+# - WS (Win Share): An estimate of the number of wins contributed by a player.
+# - BPM (Box Plus/Minus): A box score estimate of the points per 100 possessions a player contributed above a league-average player, translated to an average team.
+# - VORP ( Value over Replacement Player): A box score estimate of the points per 100 TEAM possessions that a player contributed above a replacement-level (-2.0) player, translated to an average team and prorated to an 82-game season.
+# 
+# We do the matrix correlation to see the relationship between them and between them and the Salary (our target variable to predict). Basic observations we can see in these filtered predictive variables are:
+#   - A lot of correlation between the predictive variables.
+# - 3 of the predictive variables related to Win Shares.
+# - Only one with a negative correlation with Salary, the NBA_draft_number (as it makes sense based on the process behind it).
+
+
+
+
+##########################
+#EXPLORATORY DATA ANALYSIS##############################################################################################################
+summary(newData)
+
+#####################
+# CORRELATION MATRIX#
+#####################
+newData.cor = cor(newData)
+corrplot(newData.cor)
+corrplot(newData.cor, type = "upper", order = "hclust", tl.col = "black", tl.srt = 45)
+
+
+#Check initial correlation between variables and Salary based on a coefficient.
+newData.cor <- data.frame(newData.cor)
+correlated <- c()
+variable <- c()
+coefficient_limit <-c()
+select_columns<- c()
+coeff<- 0.3
+for(column in 1:dim(newData.cor)[1]){
+  if(abs(newData.cor[1,column])>coeff){
+    variable<- append(variable, names(newData.cor)[column])
+    correlated <- append(correlated, newData.cor[1,column] )
+    coefficient_limit<-append(coefficient_limit,coeff)
+    erase_columns<-append(select_columns, column)
+  }
+}
+correlated_variables<- data.frame(variable,correlated, coefficient_limit)
+print(correlated_variables)
+
+
+
+correlated_data<-select(newData, variable)
+correlated_data.cor = cor(correlated_data)
+corrplot(correlated_data.cor)
+corrplot(correlated_data.cor, type = "upper", order = "hclust", tl.col = "black", tl.srt = 45)
+
+
+
+
+##RELATIONSHIPS
+For each of these variables we want to see the relationship with Salary, our Target Variable to Predict:
+  Basic observations we can see in these relationships are:
+  - NBA_DraftNumber: Salary decreases sharply after the first NBA Draft Numbers, then it does it in a slowly pace.
+- Age: Salary has a parabolic shape when it is related to Age. It increases smoothly but after 30 years old it starts to decrease.
+- MP: Salary increases exponentially as MP increases.
+- OWS: a small increase in OWS could signifincatly increase the salary. A player can have a negative impact in the OWS.
+- DWS: Salary increases slowly and a little bit less than OWS, reaching an absolute value lower than OWS. A player can only have a positive impact in the DWS, but not negative. So players should spend more energy in the Offensive game, instead of the Defensive game.
+- WS: Salary increases as WS increases.
+- BPM: a small increase in BPM could signifincatly increase the salary.
+- VORP: a small increase in VORP could signifincatly increase the salary.
+
+
+################
+# RELATIONSHIPS#
+################
+#NBA_DraftNumber VS SALARY
+salary_NBA_DraftNumber <- ggplot(data = mData) + 
+  geom_point(aes(x = NBA_DraftNumber , y = Salary, color = NBA_DraftNumber)) + ggtitle("Salary VS NBA_DraftNumber") + theme_bw() + theme(plot.title = element_text(hjust=0.5)) +
+  geom_smooth(mapping = aes (x = NBA_DraftNumber, y = Salary))
+salary_NBA_DraftNumber
+
+
+
+#AGE VS SALARY
+salary_age <- ggplot(data = mData)+ 
+  geom_point(aes(x = Age , y = Salary, color = Age)) + ggtitle("Salary VS Age") + theme_bw() + theme(plot.title = element_text(hjust=0.5))+
+  geom_smooth(mapping = aes (x = Age, y = Salary))
+salary_age
+
+
+#MP VS SALARY
+salary_MP <- ggplot(data = mData)+
+  geom_point(aes(x = MP , y = Salary, color = MP)) + ggtitle("Salary VS MP") + theme_bw() +
+  theme(plot.title = element_text(hjust=0.5))+
+  geom_smooth(mapping = aes (x = MP, y = Salary))
+salary_MP
+
+
+
+#OWS VS SALARY
+salary_OWS <- ggplot(data = mData)+
+  geom_point(aes(x = OWS , y = Salary, color = OWS)) + ggtitle("Salary VS OWS") + theme_bw() + theme(plot.title = element_text(hjust=0.5)) + geom_smooth(mapping = aes (x = OWS, y = Salary))
+salary_OWS
+
+
+
+
+#DWS VS SALARY
+salary_DWS <- ggplot(data = mData)+
+  geom_point(aes(x = DWS , y = Salary, color = DWS)) + ggtitle("Salary VS DWS") + theme_bw() + theme(plot.title = element_text(hjust=0.5)) + geom_smooth(mapping = aes (x = DWS, y = Salary))
+salary_DWS
+
+
+
+#WS VS SALARY
+salary_WS <- ggplot(data = mData)+
+  geom_point(aes(x = WS , y = Salary, color = WS)) + ggtitle("Salary VS WS") + theme_bw() + theme(plot.title = element_text(hjust=0.5)) +geom_smooth(mapping = aes (x = WS, y = Salary))
+salary_WS
+
+
+
+#BPM VS SALARY
+salary_BPM <- ggplot(data = mData)+
+  geom_point(aes(x = BPM , y = Salary, color = BPM)) + ggtitle("Salary VS BPM") + theme_bw() + theme(plot.title = element_text(hjust=0.5)) + geom_smooth(mapping = aes (x = BPM, y = Salary))
+salary_BPM
+
+
+
+#VORP VS SALARY
+salary_VORP <- ggplot(data = mData)+
+  geom_point( aes(x = VORP , y = Salary, color = VORP)) + ggtitle("Salary VS VORP") + theme_bw() + theme(plot.title = element_text(hjust=0.5)) + geom_smooth(mapping = aes (x = VORP, y = Salary))
+salary_VORP
+
+
+
+
+
+##FREQUENCY TABLES
+
+# As expected in social sciences, we can see that the variables we are studying seem to be not normal.
+# Main observations we can see are the following:
+#   
+#   - NBA_DraftNumber: there are 2 groups of players as there is a spike of players selected after draft number 60 and the ones selected before it.
+# - Age: the distribution is clearly not normal. Most of the players earn a "low salary".
+# - MP: there are 2 groups of players, the ones that play a huge amount of hours and the ones who are warming up the bench. It would be interesting to see the relationship of MP with Age.
+# - OWS: there is a spike of players not contributing to the OWS, but it is skewed to the right. As well as some of them who impact negatively to the OWS. It would be interesting to see the relationship of MP with OWS.
+# - DWS: there is a higher spike of players who don't contribute to the DWS compared to those who don't contribute to the OWS.
+# - WS: there is a spike of players not contributing to the WS, but it is skewed to the right. As well as some of them who impact negatively to the WS. It would be interesting to see the relationship of MP with WS
+# - BPM: there is a spike of players not contributing to the BPM, but it is skewed to the right. As well as some of them who impact negatively to the BPM. It would be interesting to see the relationship of MP with BPM.
+# - VORP: there is a spike of players not contributing to the VORP, but it is skewed to the right. As well as some of them who impact negatively to the VORP. It would be interesting to see the relationship of MP with VORP.
+
+
+
+###################
+# FREQUENCY TABLES#
+###################
+#Salary
+ggplot(data = mData, aes(x = Salary)) +
+  geom_histogram(aes(y = ..density..), binwidth = 1*10^6, colour = "grey", fill = "#7DA1EB") +
+  geom_density(alpha = .2, fill = "#E8E6B7") +
+  scale_y_continuous(sec.axis = sec_axis(~. *2, name = "Frecuency") )
+
+
+# hist.Salary <- ggplot(mData, aes(Salary, fill = Salary)) + geom_histogram(binwidth = 1*10^6, colour = "black", alpha = .5) + ggtitle("Salary Histogram") + theme_bw() + theme(plot.title = element_text(hjust=0.5))+
+#   geom_density(alpha = .2, fill = "#FF6666") 
+# print(hist.Salary)
+
+
+
+#NBA_DraftNumber
+
+ggplot(data = mData, aes(x = NBA_DraftNumber)) +
+  geom_histogram(aes(y = ..density..), binwidth = .5, colour = "grey", fill = "#7DA1EB") +
+  geom_density(alpha = .2, fill = "#E8E6B7") +
+  scale_y_continuous(sec.axis = sec_axis(~. *2, name = "Frecuency") )
+
+
+# hist.NBA_DraftNumber <- ggplot(mData, aes(NBA_DraftNumber, fill = NBA_DraftNumber)) + geom_histogram(binwidth = .2, colour = "black", alpha = .5) + ggtitle("NBA_DraftNumber Histogram") + theme_bw() + theme(plot.title = element_text(hjust=0.5))
+# print(hist.NBA_DraftNumber)
+
+# Kernel Density Plot
+# hist.NBA_DraftNumber.dens<- density(mData$NBA_DraftNumber) # returns the density data
+# plot(hist.NBA_DraftNumber.dens) # plots the results
+
+#Age
+ggplot(data = mData, aes(x = Age)) +
+  geom_histogram(aes(y = ..density..), binwidth = .2, colour = "grey", fill = "#7DA1EB") +
+  geom_density(alpha = .2, fill = "#E8E6B7") +
+  scale_y_continuous(sec.axis = sec_axis(~. *2, name = "Frecuency") )
+
+hist.age <- ggplot(mData, aes(Age, fill = Age)) + geom_histogram(binwidth = .2, colour = "black", alpha = .5) + ggtitle("Age Histogram") + theme_bw() + theme(plot.title = element_text(hjust=0.5))
+print(hist.age)
+
+
+#MP
+ggplot(data = mData, aes(x = MP)) +
+  geom_histogram(aes(y = ..density..), binwidth = 120, colour = "grey", fill = "#7DA1EB") +
+  geom_density(alpha = .2, fill = "#E8E6B7") +
+  scale_y_continuous(sec.axis = sec_axis(~. *2, name = "Frecuency") )
+
+hist.MP <- ggplot(mData, aes(MP, fill = MP)) + geom_histogram(binwidth = 120, colour = "black", alpha = .5) + ggtitle("MP Histogram") + theme_bw() + theme(plot.title = element_text(hjust=0.5)) 
+print(hist.MP)
+
+# Kernel Density Plot
+
+hist.MP.dens<- density(mData$MP) # returns the density data
+plot(hist.MP.dens) # plots the results
+
+#OWS
+ggplot(data = mData, aes(x = OWS)) +
+  geom_histogram(aes(y = ..density..), binwidth = .2, colour = "grey", fill = "#7DA1EB") +
+  geom_density(alpha = .2, fill = "#E8E6B7") +
+  scale_y_continuous(sec.axis = sec_axis(~. *2, name = "Frecuency") )
+
+hist.OWS <- ggplot(mData, aes(OWS, fill = OWS)) + geom_histogram(binwidth = .2, colour = "black", alpha = .5) + ggtitle("OWS Histogram") + theme_bw() + theme(plot.title = element_text(hjust=0.5)) 
+print(hist.OWS)
+
+#DWS
+ggplot(data = mData, aes(x = DWS)) +
+  geom_histogram(aes(y = ..density..), binwidth = .2, colour = "grey", fill = "#7DA1EB") +
+  geom_density(alpha = .2, fill = "#E8E6B7") +
+  scale_y_continuous(sec.axis = sec_axis(~. *2, name = "Frecuency") )
+
+hist.DWS <- ggplot(mData, aes(DWS, fill = DWS)) + geom_histogram(binwidth = .2, colour = "black", alpha = .5) + ggtitle("DWS Histogram") + theme_bw() + theme(plot.title = element_text(hjust=0.5)) 
+print(hist.DWS)
+
+#WS
+ggplot(data = mData, aes(x = WS)) +
+  geom_histogram(aes(y = ..density..), binwidth =  .2, colour = "grey", fill = "#7DA1EB") +
+  geom_density(alpha = .2, fill = "#E8E6B7") +
+  scale_y_continuous(sec.axis = sec_axis(~. *2, name = "Frecuency") )
+
+hist.WS <- ggplot(mData, aes(WS, fill = WS)) + geom_histogram(binwidth = .2, colour = "black", alpha = .5) + ggtitle("WS Histogram") + theme_bw() + theme(plot.title = element_text(hjust=0.5)) 
+print(hist.WS)
+
+#BPM
+ggplot(data = mData, aes(x = BPM)) +
+  geom_histogram(aes(y = ..density..), binwidth = 2.5, colour = "grey", fill = "#7DA1EB") +
+  geom_density(alpha = .2, fill = "#E8E6B7") +
+  scale_y_continuous(sec.axis = sec_axis(~. *2, name = "Frecuency") )
+
+
+hist.BPM <- ggplot(mData, aes(BPM, fill = BPM)) + geom_histogram(binwidth = 2.5, colour = "black", alpha = .5) + ggtitle("BPM Histogram") + theme_bw() + theme(plot.title = element_text(hjust=0.5)) 
+print(hist.BPM)
+
+#VORP
+ggplot(data = mData, aes(x = VORP)) +
+  geom_histogram(aes(y = ..density..), binwidth = .2, colour = "grey", fill = "#7DA1EB") +
+  geom_density(alpha = .2, fill = "#E8E6B7") +
+  scale_y_continuous(sec.axis = sec_axis(~. *2, name = "Frecuency") )
+
+hist.VORP <- ggplot(mData, aes(VORP, fill = VORP)) + geom_histogram(binwidth = .2, colour = "black", alpha = .5) + ggtitle("VORP Histogram") + theme_bw() + theme(plot.title = element_text(hjust=0.5)) 
+print(hist.VORP)
+
+#################################################################################################
+# PREDICTION#####################################################################################
+#################################################################################################
+nbaData<- newData
+
+
+##############################################
+#TRAINING (70%) AND TEST ( 30%) SET SPLITTING########################################################
+##############################################
+# We create the sets needed for the feature model matrices, model training and parameter tuning.
+# INPUT: NBA data
+# OUTPUT: Splitted data for training and testing: nba_train and nba_test
+
+
+# single binary split of the data into a training set and testing set.
+# strata = A variable that is used to conduct stratified sampling to create the resamples.
+# prop = The proportion of data to be retained for modeling/analysis.
+
+set.seed(123)
+nba_split <- initial_split(nbaData, prop = .7, strata = "Salary")
+nba_train <- training(nba_split)
+nba_test  <- testing(nba_split)
+
+
+###############################################
+# FEATURE MODEL MATRICES: TRAINING AND TESTING#########################################################
+###############################################
+# INPUT: We need the training (70%) and test (30%) sets nba_train and nba_test to create the feature model matrices.
+# OUTPUT: We obtain the matrices: nba_train_x and nba_test_x and vectors nba_train_y and nba_test_y.
+
+
+# Create training and testing feature model matrices and response vectors.
+# we use model.matrix(...)[, -1] to discard the variable intercept
+###############
+# TRAINING SET#
+###############
+# Training sets: The train_x to predict train_y.
+nba_train_x <- model.matrix(Salary ~ ., nba_train)[, -1]
+nba_train_y <- (nba_train$Salary)
+
+##############
+# TESTING SET#
+##############
+# Testing sets: The test_x to predict a predicted_y and compare predicted_y VS test_y.
+nba_test_x <- model.matrix(Salary ~ ., nba_test)[, -1]
+nba_test_y <- (nba_test$Salary)
+
+# What is the dimension of your feature matrix?
+dim(nba_train_x)
+##  340  25 
+##############################################################################################
+
+######################################
+# MODEL TRAINING AND PARAMETER TUNING######################################################################
+######################################
+# INPUT: We need nba_train_x matrix from the feature matrix and the nba_train_y vector.
+# OUTPUT: The optimal lambda and alpha for the smallest RMSE, as well as the different RMSE, Rsquared, MAE for each lambda and alpha tried.
+
+
+
+#####Explanation of glmnet#####
+# glmnet, generalized linear models
+# The elastic net combines the Lasso Regression Penalty(lambda1) with the Ridge Regression Penalty(lambda2). And we can adjust how much penalty by adjusting lambda1 or lambda2.
+
+# However, glmnet has a single lambda and alpha(can be any value from 0-1):
+# If alpha= 0, Lasso Penalty goes away and we're just left the  Ridge Regression Penalty or Ridge Regression. If alpha=1, Ridge Penalty goes away and we're just left the Lasso Penalty or Lasso Regression. When alpha is between 0 and 1 we get a mixture of the 2 penalties that does a better job shrinking correlated variables than either Lasso or Ridge does on their own.
+
+# Lambda controls how much of the penalty to apply to the regression. When lambda= 0, the whole penalty goes away (Ridge and Lasso Penalties goes away) and we are just doing Standar Least Squares for Linear Regression (or maximum likelihood for logistic regression). When lambda>0 the Elastic-Net Penalty kicks in and we start shrinking parameter estimates.
+
+# Using glmnet we will test different values for lambda and alpha.
+#####End of Explanation of glmnet#####
+
+
+# cv.glmnet: we want to use cross-validation to obtain the optimal values for lambda. By default it uses 10-Fold cross-validation. For that we need to specify the Training sets: The train_x to predict train_y.
+
+# PARAMETERS: resampling method used: cv
+train_control <- trainControl(method = "cv", number = 10)
+
+caret_mod <- train(
+  x = nba_train_x,
+  y = nba_train_y,
+  method = "glmnet",
+  preProc = c("center", "scale", "zv", "nzv"),
+  trControl = train_control,
+  tuneLength = 10
+)
+caret_mod
+
+# alpha  lambda        RMSE      Rsquared   MAE   
+# 0.7    0.1391783180  1.037163  0.5180505  0.7781468
+##############################################################################################################
+
+############################
+# TUNING ELASTIC NETS λ y α###################################################################################
+############################
+# We try a bunch of different values for alpha to see a bunch of Elastic-Net Regression fits.
+# INPUT: We need nba_train_x from the feature matrix and nba_train_y to tune it.
+# OUTPUT: MSE_min, MSE_1se for each lambda_min, lambda_1se and alpha tried.
+
+
+
+# maintain the same folds across all models
+fold_id <- sample(1:10, size = length(nba_train_y), replace=TRUE)
+
+# search across a range of alphas
+tuning_grid <- tibble::tibble(
+  alpha      = seq(0, 1, by = .1),
+  
+  mse_min    = NA,
+  mse_1se    = NA,
+  lambda_min = NA,
+  lambda_1se = NA
+)
+
+
+for(i in seq_along(tuning_grid$alpha)) {
+  # cv.glmnet: we want to use cross-validation to obtain the optimal values for lambda. By default it uses 10-Fold cross-validation. For that we need to specify the Training sets: The train_x to predict train_y.
+  
+  # fit CV model for each alpha value
+  # PARAMETERS: Training sets: The train_x to predict train_y.
+  fit <- cv.glmnet(nba_train_x, nba_train_y, alpha = tuning_grid$alpha[i], foldid = fold_id)
+  
+  # MSE: sum of the squared residuals divided by the sample size.
+  # extract MSE and lambda values.
+  tuning_grid$mse_min[i]    <- fit$cvm[fit$lambda == fit$lambda.min]
+  tuning_grid$mse_1se[i]    <- fit$cvm[fit$lambda == fit$lambda.1se]
+  tuning_grid$lambda_min[i] <- fit$lambda.min
+  tuning_grid$lambda_1se[i] <- fit$lambda.1se
+}
+
+tuning_grid
+
+tuning_grid %>%
+  mutate(se = mse_1se - mse_min) %>%
+  ggplot(aes(alpha, mse_min)) +
+  geom_line(size = 2) +
+  geom_ribbon(aes(ymax = mse_min + se, ymin = mse_min - se), alpha = .25) +
+  ggtitle("MSE ± one standard error")
+
+############################################################################################################
+
+###################
+# FINAL PREDICTION###########################################################################################
+###################
+# After obtaining a fit model with the optimal values for lambda using glmnet.
+# We apply the fitted model to the Testing data.
+# INPUT: We need nba_test_x,nba_train_y,nba_test_x, nba_test_y
+# OUTPUT: Prediction that we are able to compare with nba_test_y and get the MSE.
+
+
+#################################
+# FIT A MODEL WITH TRAINING SETS#
+#################################
+# cv.glmnet: we want to use cross-validation to obtain the optimal values for lambda. By default it uses 10-Fold cross-validation. For that we need to specify the Training sets: The train_x to predict train_y.
+
+# Does k-fold cross-validation for glmnet, produces a plot, and returns a value for lambda
+# PARAMETERS:Training sets: The train_x to predict train_y and alpha= 1 is Lasso Ride regression.
+cv_fit   <- cv.glmnet(nba_train_x, nba_train_y, alpha = 1)
+min(cv_fit$cvm)
+# [1] 2.526126e+13
+
+
+#################################################
+# PREDICT: APPLY A FITTED MODEL TO TRAINING SETS#
+#################################################
+# Predict:
+# function for predictions from the results of various model fitting functions.
+
+
+# PARAMETERS: We apply the fitted model to the Testing data ( nba_test_x) and s = size of the penalty, set to one of the optimal values for lambda. Lambda.min is the lambda that resulted in the smallest MSE 
+pred_lambda_min <- predict(cv_fit, s = cv_fit$lambda.min, nba_test_x)
+
+# lambda.1se is the lambda that resulted in the simplest model ( the model with the fewest non-zero parameters). 
+pred_lambda_1se <- predict(cv_fit, s = cv_fit$lambda.1se, nba_test_x)
+
+###########################
+# MEAN SQUARED ERROR (MSE)#
+###########################
+# Comparison between the nba_test_y and the prediction done from the nba_test_x to see the error of the prediction.
+error_model_lambda_min<-mean((nba_test_y - pred_lambda_min)^2)
+error_model_lambda_min<-sqrt(error_model_lambda_min)
+error_model_lambda_min
+# [1] 5740677
+error_model_lambda_1se<-mean((nba_test_y - pred_lambda_1se)^2)
+error_model_lambda_1se<-sqrt(error_model_lambda_1se)
+error_model_lambda_1se
+# [1] 5726812
+
+######################
+# VARIABLES SELECTED #
+######################
+variables_predict_lambda_min<- predict(cv_fit, type = "coefficients", s = cv_fit$lambda.min)
+variables_predict_lambda_1se<- predict(cv_fit, type = "coefficients", s = cv_fit$lambda.1se)
+print(variables_predict_lambda_min)
+print(variables_predict_lambda_1se)
+#########################################################################################################
+
+
+
